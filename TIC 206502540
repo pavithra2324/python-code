@@ -1,3 +1,4 @@
+NORMALISE,DETRENDING AND PERIODOGRAM
 import lightkurve as lk
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,13 +15,13 @@ lcs = sr.download_all(flux_column="pdcsap_flux", quality_bitmask="default")
 for i, lc_sector in enumerate(lcs):
     print(f"\n⎯⎯⎯⎯ Sector {i+1} ⎯⎯⎯⎯")
 
-    # Clean and normalize
+# Clean and normalize
     lc_clean = lc_sector.normalize(unit="percent").remove_nans().remove_outliers(sigma=5)
 
-    # Detrend
-    lc_flat = lc_clean.flatten(window_length=401)
+# Detrend
+ lc_flat = lc_clean.flatten(window_length=401)
 
-    # Plot light curve and flattened curve
+# Plot light curve and flattened curve
     fig, ax = plt.subplots(2, 1, figsize=(10, 5), sharex=True, dpi=120)
     lc_clean.plot(ax=ax[0], label="Normalized")
     ax[0].set_ylabel("Flux [%]")
@@ -34,14 +35,31 @@ for i, lc_sector in enumerate(lcs):
     plt.tight_layout()
     plt.show()
 
-    # Lomb-Scargle Periodogram
+ # Lomb-Scargle Periodogram
     periodogram = lc_flat.to_periodogram(method="lombscargle",
                                          minimum_period=0.16,
                                          maximum_period=0.172)
     best_period = periodogram.period_at_max_power
     print(f"Best LS period: {best_period:.5f} days")
 
-    # Plot periodogram
+ # Plot periodogram
     periodogram.plot(title=f"Periodogram – Sector {i+1}")
     plt.show()
+
                 
+PHASE-FOLDING
+lc_fold_ls = lc_flat.fold(period=0.1666)
+lc_fold_ls.plot()
+
+
+BINNED
+lc_fold_bin = lc_fold_ls.bin(bins=200)
+
+lc_fold_ls.plot(alpha=0.2, label="Raw", marker='.', linestyle='none')  # raw data
+lc_fold_bin.scatter(label="Binned", color="orange")  # binned data
+
+plt.legend()
+plt.xlabel("Phase")
+plt.ylabel("Flux")
+plt.title("Phase-Folded Light Curve (Raw vs. Binned)")
+
