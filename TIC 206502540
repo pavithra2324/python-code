@@ -1,0 +1,47 @@
+import lightkurve as lk
+import matplotlib.pyplot as plt
+import numpy as np
+
+tic_id = "206502540"
+
+# Search for all available SPOC light curves
+sr = lk.search_lightcurve(f"TIC {tic_id}", mission="TESS", author="SPOC")
+
+# Download only the PDCSAP_FLUX column
+lcs = sr.download_all(flux_column="pdcsap_flux", quality_bitmask="default")
+
+# Normalize, clean, and detrend each sector individually
+for i, lc_sector in enumerate(lcs):
+    print(f"\n⎯⎯⎯⎯ Sector {i+1} ⎯⎯⎯⎯")
+
+    # Clean and normalize
+    lc_clean = lc_sector.normalize(unit="percent").remove_nans().remove_outliers(sigma=5)
+
+    # Detrend
+    lc_flat = lc_clean.flatten(window_length=401)
+
+    # Plot light curve and flattened curve
+    fig, ax = plt.subplots(2, 1, figsize=(10, 5), sharex=True, dpi=120)
+    lc_clean.plot(ax=ax[0], label="Normalized")
+    ax[0].set_ylabel("Flux [%]")
+    ax[0].legend()
+    
+    lc_flat.plot(ax=ax[1], label="Flattened")
+    ax[1].set_ylabel("Detrended Flux [%]")
+    ax[1].set_xlabel("Time – 2457000 [BTJD days]")
+    ax[1].legend()
+    plt.suptitle(f"TIC {tic_id} – Sector {i+1}")
+    plt.tight_layout()
+    plt.show()
+
+    # Lomb-Scargle Periodogram
+    periodogram = lc_flat.to_periodogram(method="lombscargle",
+                                         minimum_period=0.16,
+                                         maximum_period=0.172)
+    best_period = periodogram.period_at_max_power
+    print(f"Best LS period: {best_period:.5f} days")
+
+    # Plot periodogram
+    periodogram.plot(title=f"Periodogram – Sector {i+1}")
+    plt.show()
+                
