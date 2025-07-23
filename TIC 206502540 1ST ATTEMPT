@@ -1,0 +1,57 @@
+NORMALISE AND DETREND
+import lightkurve as lk
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+tic_id = "206502540"
+
+# Search for all available SPOC light curves
+sr = lk.search_lightcurve(f"TIC {tic_id}", mission="TESS", author="SPOC")
+
+# Download only the PDCSAP_FLUX column
+lcs = sr.download_all(flux_column="pdcsap_flux", quality_bitmask="default")
+
+# Normalise each sector, clean, then stitch
+lcs = [lc.normalize(unit="percent")
+          .remove_nans()
+          .remove_outliers(sigma=5)
+       for lc in lcs]
+
+lc = lk.LightCurveCollection(lcs).stitch()
+
+# Optional: detrend
+lc_flat = lc.flatten(window_length=401)
+
+# Quick plots
+fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True, dpi=120)
+lc.plot(ax=ax[0], label="PDCSAP – normalised")
+ax[0].set_ylabel("Flux [%]")
+
+lc_flat.plot(ax=ax[1], label="Flattened")
+ax[1].set_ylabel("Detrended Flux [%]")
+ax[1].set_xlabel("Time – 2457000 [BTJD days]")
+plt.tight_layout()
+plt.show()
+
+
+PERIODOGRAM-LS METHOD
+periodogram = lc_flat.to_periodogram(method="lombscargle", minimum_period=0.16, maximum_period=0.172)
+periodogram.plot()
+print(f"Best LS period: {periodogram.period_at_max_power:.4f} days")
+
+PHASE-FOLDING
+lc_fold_ls = lc_flat.fold(period=0.1666)
+lc_fold_ls.plot()
+
+BINNED
+lc_fold_bin = lc_fold_ls.bin(bins=200)
+
+lc_fold_ls.plot(alpha=0.2, label="Raw", marker='.', linestyle='none')  # raw data
+lc_fold_bin.scatter(label="Binned", color="orange")  # binned data
+
+plt.legend()
+plt.xlabel("Phase")
+plt.ylabel("Flux")
+plt.title("Phase-Folded Light Curve (Raw vs. Binned)")
+
